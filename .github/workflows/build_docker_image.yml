@@ -27,10 +27,11 @@ jobs:
 
     # Login to Docker Hub
     - name: Test
-      run: pwd
+      run: ls
 
     # Build and publish Docker image
     - name: Docker build and push
       run: docker build -f ${GITHUB_WORKSPACE}/docker/Dockerfile -t ${{ secrets.DockerHubUser }}/${IMAGE_NAME}:latest . && docker push ${{ secrets.DockerHubUser }}/${IMAGE_NAME}:latest
-      env:
+      working-directory: docker
+			env:
         IMAGE_NAME: azure_coredns
