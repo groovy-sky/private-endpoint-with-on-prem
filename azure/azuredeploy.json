@@ -1,0 +1,87 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "type": "String",
+            "defaultValue": "[resourceGroup().location]"
+        },
+        "containerName": {
+            "type": "String"
+        },
+        "imageName": {
+            "type": "String"
+        },
+        "osType": {
+            "allowedValues": [
+                "Linux",
+                "Windows"
+            ],
+            "type": "String",
+            "defaultValue":"Linux"
+        },
+        "numberCpuCores": {
+            "type": "String",
+            "allowedValues":["1","2","3","4"],
+            "defaultValue": "1"
+        },
+        "memory": {
+            "type": "String",
+            "defaultValue": "0.5"
+        },
+        "restartPolicy": {
+            "allowedValues": [
+                "OnFailure",
+                "Always",
+                "Never"
+            ],
+            "type": "String",
+            "defaultValue":"OnFailure"
+        },
+        "containerProtocol":{
+            "type": "string",
+            "allowedValues":["UDP","TCP"],
+            "defaultValue":"UDP"
+        },
+        "containerPort":{
+            "type": "string",
+            "defaultValue": "53"
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.ContainerInstance/containerGroups",
+            "apiVersion": "2018-10-01",
+            "name": "[parameters('containerName')]",
+            "location": "[parameters('location')]",
+            "tags": {},
+            "properties": {
+                "containers": [
+                    {
+                        "name": "[parameters('containerName')]",
+                        "properties": {
+                            "image": "[parameters('imageName')]",
+                            "resources": {
+                                "requests": {
+                                    "cpu": "[int(parameters('numberCpuCores'))]",
+                                    "memoryInGB": "[float(parameters('memory'))]"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "restartPolicy": "[parameters('restartPolicy')]",
+                "osType": "[parameters('osType')]",
+                "ipAddress": {
+                "type": "Private",
+                "ports": [
+                {
+                    "protocol": "[parameters('containerProtocol')]",
+                    "port": "[parameters('containerPort')]"
+                }
+                ]
+            }
+            }
+        }
+    ]
+}
