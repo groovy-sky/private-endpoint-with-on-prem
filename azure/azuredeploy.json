@@ -46,6 +46,19 @@
         "containerPort":{
             "type": "string",
             "defaultValue": "53"
+        },
+        "containerIp": {
+            "type": "string",
+            "defaultValue": null
+        },
+        "containerIpType": {
+            "type": "string",
+            "allowedValues":["Private","Public"],
+            "defaultValue":"Private"
+        },
+        "subnetworkId": {
+            "type": "string",
+            "defaultValue": null
         }
     },
     "resources": [
@@ -73,14 +86,18 @@
                 "restartPolicy": "[parameters('restartPolicy')]",
                 "osType": "[parameters('osType')]",
                 "ipAddress": {
-                "type": "Private",
-                "ports": [
-                {
-                    "protocol": "[parameters('containerProtocol')]",
-                    "port": "[parameters('containerPort')]"
+                    "type": "[parameters('containerIpType')]",
+                    "ip": "[if(equals(parameters('containerIpType'), 'Private'), parameters('containerIp'), json('null'))]",
+                    "ports": [
+                    {
+                        "protocol": "[parameters('containerProtocol')]",
+                        "port": "[parameters('containerPort')]"
+                    }
+                    ]
+                },
+                "networkProfile":{
+                    "id": "[if(equals(parameters('containerIpType'), 'Private'), parameters('subnetworkId'), json('null'))]"
                 }
-                ]
-            }
             }
         }
     ]
