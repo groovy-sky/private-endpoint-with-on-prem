@@ -7,10 +7,12 @@
             "defaultValue": "[resourceGroup().location]"
         },
         "containerName": {
-            "type": "String"
+            "type": "String",
+            "defaultValue": "coredns-public-instance"
         },
         "imageName": {
-            "type": "String"
+            "type": "String",
+            "defaultValue": "gr00vysky/azure-coredns:latest"
         },
         "osType": {
             "allowedValues": [
@@ -46,24 +48,6 @@
         "containerPort":{
             "type": "int",
             "defaultValue": 53
-        },
-        "containerIp": {
-            "type": "string",
-            "defaultValue": "empty-if-public-ip"
-        },
-        "containerIpType": {
-            "type": "string",
-            "allowedValues":["Private","Public"],
-            "defaultValue":"Private"
-        },
-        "subnetworkId": {
-            "type": "string",
-            "defaultValue": "empty-if-public-ip"
-        }
-    },
-    "variables":{
-        "subnetworkId":{
-            "id": "[parameters('subnetworkId')]"
         }
     },
     "resources": [
@@ -97,16 +81,14 @@
                 "restartPolicy": "[parameters('restartPolicy')]",
                 "osType": "[parameters('osType')]",
                 "ipAddress": {
-                    "type": "[parameters('containerIpType')]",
+                    "type": "Public",
                     "ports": [
                     {
                         "protocol": "[parameters('containerProtocol')]",
                         "port": "[parameters('containerPort')]"
                     }
-                    ],
-                    "ip": "[if(equals(parameters('containerIpType'), 'Private'), parameters('containerIp'), json('null'))]"
-                },
-                "networkProfile": "[if(equals(parameters('containerIpType'), 'Private'), variables('subnetworkId'), json('null'))]"
+                    ]
+                }
             }
         }
     ]
