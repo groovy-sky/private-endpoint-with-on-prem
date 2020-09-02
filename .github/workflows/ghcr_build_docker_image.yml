@@ -27,7 +27,7 @@ jobs:
 
     # Build and publish Docker image
     - name: Docker build and push
-      run: docker build -f ${GITHUB_WORKSPACE}/docker/Dockerfile -t ${{ secrets.GitHubUser }}/${IMAGE_NAME}:latest . && docker push ghcr.io/${{ secrets.GitHubUser }}/${IMAGE_NAME}:latest
+      run: docker build -f ${GITHUB_WORKSPACE}/docker/Dockerfile -t ghcr.io/${{ secrets.GitHubUser }}/${IMAGE_NAME}:latest . && docker push ghcr.io/${{ secrets.GitHubUser }}/${IMAGE_NAME}:latest
       working-directory: docker
       env:
         IMAGE_NAME: azure-coredns
