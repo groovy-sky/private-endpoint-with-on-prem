@@ -6,7 +6,10 @@ on:
     paths:
     - '.github/workflows/**'
     - 'docker/**'
-
+env:
+  REGISTRY: ghcr.io
+  IMAGE: azure-coredns:latest
+  
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
@@ -27,7 +30,5 @@ jobs:
 
     # Build and publish Docker image
     - name: Docker build and push
-      run: docker build -f ${GITHUB_WORKSPACE}/docker/Dockerfile -t ghcr.io/${{ github.actor }}/azure-coredns:latest . && docker push ghcr.io/${{ github.actor }}/azure-coredns:latest
-      working-directory: docker
-      env:
-        IMAGE_NAME: azure-coredns
+      run: cd docker; docker build -t $REGISTRY/${{ github.actor }}/$IMAGE . && docker push $REGISTRY/${{ github.actor }}/$IMAGE
+
