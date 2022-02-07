@@ -1,6 +1,5 @@
 name: Build and Publish to Github packages
 
-# Controls when the action will run. Triggers the workflow on push request
 on:
   push:
     paths:
@@ -10,25 +9,20 @@ env:
   REGISTRY: ghcr.io
   IMAGE: azure-coredns:latest
   
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-
-    # The type of runner that the job will run on
+  build-and-push-image:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
 
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
-    # Login to Docker Hub
     - name: Login to registry
       run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u ${{ github.actor }} --password-stdin
 
-    # Build and publish Docker image
-    - name: Docker build and push
+    - name: Build and push image
       run: cd docker; docker build -t $REGISTRY/${{ github.actor }}/$IMAGE . && docker push $REGISTRY/${{ github.actor }}/$IMAGE
 
