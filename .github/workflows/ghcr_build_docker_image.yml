@@ -7,14 +7,15 @@ on:
     - 'docker/**'
 env:
   REGISTRY: ghcr.io
-  IMAGE: azure-coredns:latest
+  IMAGE: azure-coredns-forwarder:latest
   
 jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       packages: write
+      contents: read
+
 
     steps:
 
