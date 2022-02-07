@@ -23,6 +23,6 @@ jobs:
     - name: Login to registry
       run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u ${{ github.actor }} --password-stdin
 
-    - name: Build and push image
+    - name: Build and push image to Github
       run: cd docker; docker build -t $REGISTRY/${{ github.repository_owner }}/$IMAGE . && docker push $REGISTRY/${{ github.repository_owner }}/$IMAGE
 
