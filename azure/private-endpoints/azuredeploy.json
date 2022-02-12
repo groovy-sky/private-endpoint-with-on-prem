@@ -54,9 +54,13 @@
             "type": "string",
             "defaultValue": "10.173.44.192/26"
         },
-        "privateDnsZoneName":{
+        "DnsZoneName":{
           "type": "string",
-          "defaultValue": "privatelink.file.core.windows.net"
+          "defaultValue": "file.core.windows.net"
+        },
+        "imageName":{
+          "type": "string",
+          "defaultValue": "ghcr.io/groovy-sky/azure-coredns:latest"
         }
     },
     "variables": {
@@ -68,6 +72,7 @@
         "publicIpAddressName": "[concat('pip-',uniquestring(subscription().subscriptionId))]",
         "networkSecurityGroupName": "[concat('nsg-',uniquestring(subscription().subscriptionId))]",
         "virtualNetworkName": "[concat('net-',uniquestring(subscription().subscriptionId))]",
+        "containerName": "[concat('dns-',uniquestring(subscription().subscriptionId))]",
         "nsgId": "[resourceId(resourceGroup().name, 'Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName'))]",
         "vnetId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]",
         "vmSubnetRef": "[concat(variables('vnetId'), '/subnets/', parameters('vmSubnetName'))]",
@@ -77,7 +82,10 @@
         "privateEndpointName": "[concat('endpoint-',variables('fileStorageAccountName'))]",
         "pvtendpointdnsgroupname": "[concat(variables('privateEndpointName'),'/mydnsgroupname')]",
         "storageContainerUri": "[concat(concat('https://', variables('storageAccountName'), '.blob.core.windows.net/'), 'vhds/')]",
-        "commandToExecute": "[concat('nslookup ',variables('fileStorageAccountName'),'.',parameters('privateDnsZoneName'))]"
+        "privateDnsZoneName": "[concat('privatelink',parameters('DnsZoneName'))]",
+        "commandToExecute": "[concat('nslookup ',variables('fileStorageAccountName'),'.',parameters('DnsZoneName'))]",
+        "networkProfileName":"[concat('container-profile-', variables('containerName'))]",
+        "interfaceConfigName":"[concat('container-nic-', variables('containerName'))]"
     },
     "resources": [
       {
@@ -164,7 +172,15 @@
           {
             "name": "[parameters('dnsSubnetName')]",
             "properties": {
-              "addressPrefix": "[parameters('dnsSubnetRange')]"
+              "addressPrefix": "[parameters('dnsSubnetRange')]",
+              "delegations": [
+                {
+                  "name": "DelegationService",
+                  "properties": {
+                    "serviceName": "Microsoft.ContainerInstance/containerGroups"
+                  }
+                }
+              ]
             }
           }
         ]
@@ -198,7 +214,7 @@
       {
         "type": "Microsoft.Network/privateDnsZones",
         "apiVersion": "2020-01-01",
-        "name": "[parameters('privateDnsZoneName')]",
+        "name": "[variables('privateDnsZoneName')]",
         "location": "global",
         "dependsOn": [
             "[variables('vnetId')]"
@@ -208,10 +224,10 @@
       {
         "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
         "apiVersion": "2020-01-01",
-        "name": "[concat(parameters('privateDnsZoneName'), '/', parameters('privateDnsZoneName'), '-link')]",
+        "name": "[concat(variables('privateDnsZoneName'), '/', variables('privateDnsZoneName'), '-link')]",
         "location": "global",
         "dependsOn": [
-          "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneName'))]",
+          "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneName'))]",
           "[variables('vnetId')]"
         ],
         "properties": {
@@ -227,7 +243,7 @@
         "name": "[variables('pvtendpointdnsgroupname')]",
         "location": "[parameters('location')]",
         "dependsOn": [
-          "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneName'))]",
+          "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneName'))]",
           "[variables('privateEndpointName')]"
         ],
         "properties": {
@@ -235,7 +251,7 @@
             {
               "name": "config1",
               "properties": {
-                "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneName'))]"
+                "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneName'))]"
               }
             }
           ]
@@ -325,7 +341,81 @@
           "commandToExecute": "[variables('commandToExecute')]"
         }
       }
-    }
+    },
+    {
+      "name": "[variables('networkProfileName')]",
+      "type": "Microsoft.Network/networkProfiles",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]"
+      ],
+      "apiVersion": "2018-07-01",
+      "location": "[parameters('location')]",
+      "properties": {
+        "containerNetworkInterfaceConfigurations": [
+          {
+            "name": "[variables('interfaceConfigName')]",
+            "properties": {
+              "ipConfigurations": [
+                {
+                  "name": "ipconfig",
+                  "properties": {
+                    "subnet": {
+                      "id": "[variables('dnsSubnetRef')]"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+            {
+            "type": "Microsoft.ContainerInstance/containerGroups",
+            "apiVersion": "2018-10-01",
+            "name": "[variables('containerName')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkProfiles/', variables('networkProfileName'))]"
+            ],
+            "location": "[parameters('location')]",
+            "tags": {},
+            "properties": {
+                "containers": [
+                    {
+                        "name": "[variables('containerName')]",
+                        "properties": {
+                            "image": "[parameters('imageName')]",
+                            "ports": [
+                    {
+                        "protocol": "UDP",
+                        "port": "53"
+                    }
+                    ],
+                            "resources": {
+                                "requests": {
+                                    "cpu": 1,
+                                    "memoryInGB": 1
+                                }
+                            }
+                        }
+                    }
+                ],
+                "restartPolicy": "OnFailure",
+                "osType": "Linux",
+                "ipAddress": {
+                    "type": "Private",
+                    "ports": [
+                    {
+                        "protocol": "UDP",
+                        "port": "53"
+                    }
+                    ]
+                },
+                "networkProfile": {
+                    "Id": "[resourceId('Microsoft.Network/networkProfiles', variables('networkProfileName'))]"
+            }
+            }
+        }
     ],
     "outputs": {
         "commandOutput": {
