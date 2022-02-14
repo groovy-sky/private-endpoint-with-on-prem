@@ -86,8 +86,9 @@
         "privateEndpointName": "[concat('endpoint-',variables('fileStorageAccountName'))]",
         "pvtendpointdnsgroupname": "[concat(variables('privateEndpointName'),'/mydnsgroupname')]",
         "storageContainerUri": "[concat(concat('https://', variables('storageAccountName'), '.blob.core.windows.net/'), 'vhds/')]",
-        "privateDnsZoneName": "[concat('privatelink',parameters('DnsZoneName'))]",
+        "privateDnsZoneName": "[concat('privatelink.',parameters('DnsZoneName'))]",
         "commandToExecute": "[concat('nslookup ',variables('fileStorageAccountName'),'.',parameters('DnsZoneName'))]",
+        "commandToExecuteWithForwarder": "[concat(variables('commandToExecute'),' 8.8.8.8; ',variables('commandToExecute'),' 10.173.44.196')]",
         "networkProfileName":"[concat('container-profile-', variables('containerName'))]",
         "interfaceConfigName":"[concat('container-nic-', variables('containerName'))]"
     },
@@ -111,6 +112,82 @@
           "allowBlobPublicAccess": true
         }
       },
+    {
+      "condition":"[parameters('withDnsForwarder')]",
+      "name": "[variables('networkProfileName')]",
+      "type": "Microsoft.Network/networkProfiles",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]"
+      ],
+      "apiVersion": "2018-07-01",
+      "location": "[parameters('location')]",
+      "properties": {
+        "containerNetworkInterfaceConfigurations": [
+          {
+            "name": "[variables('interfaceConfigName')]",
+            "properties": {
+              "ipConfigurations": [
+                {
+                  "name": "ipconfig",
+                  "properties": {
+                    "subnet": {
+                      "id": "[variables('dnsSubnetRef')]"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+            {"condition":"[parameters('withDnsForwarder')]",
+            "type": "Microsoft.ContainerInstance/containerGroups",
+            "apiVersion": "2018-10-01",
+            "name": "[variables('containerName')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkProfiles/', variables('networkProfileName'))]"
+            ],
+            "location": "[parameters('location')]",
+            "tags": {},
+            "properties": {
+                "containers": [
+                    {
+                        "name": "[variables('containerName')]",
+                        "properties": {
+                            "image": "[parameters('imageName')]",
+                            "ports": [
+                    {
+                        "protocol": "UDP",
+                        "port": "53"
+                    }
+                    ],
+                            "resources": {
+                                "requests": {
+                                    "cpu": 1,
+                                    "memoryInGB": 1
+                                }
+                            }
+                        }
+                    }
+                ],
+                "restartPolicy": "OnFailure",
+                "osType": "Linux",
+                "ipAddress": {
+                    "type": "Private",
+                    "ports": [
+                    {
+                        "protocol": "UDP",
+                        "port": "53"
+                    }
+                    ]
+                },
+                "networkProfile": {
+                    "Id": "[resourceId('Microsoft.Network/networkProfiles', variables('networkProfileName'))]"
+            }
+            }
+        }
+      ,
                 {
             "type": "Microsoft.Network/networkInterfaces",
             "apiVersion": "2018-10-01",
@@ -348,86 +425,10 @@
         "typeHandlerVersion": "2.0",
         "autoUpgradeMinorVersion": true,
         "settings": {
-          "commandToExecute": "[variables('commandToExecute')]"
+          "commandToExecute": "[if(parameters('withDnsForwarder'), variables('commandToExecuteWithForwarder'),variables('commandToExecute'))]"
         }
       }
-    },
-    {
-      "condition":"[parameters('withDnsForwarder')]",
-      "name": "[variables('networkProfileName')]",
-      "type": "Microsoft.Network/networkProfiles",
-      "dependsOn": [
-        "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]"
-      ],
-      "apiVersion": "2018-07-01",
-      "location": "[parameters('location')]",
-      "properties": {
-        "containerNetworkInterfaceConfigurations": [
-          {
-            "name": "[variables('interfaceConfigName')]",
-            "properties": {
-              "ipConfigurations": [
-                {
-                  "name": "ipconfig",
-                  "properties": {
-                    "subnet": {
-                      "id": "[variables('dnsSubnetRef')]"
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        ]
-      }
-    },
-            {
-              "condition":"[parameters('withDnsForwarder')]",
-            "type": "Microsoft.ContainerInstance/containerGroups",
-            "apiVersion": "2018-10-01",
-            "name": "[variables('containerName')]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkProfiles/', variables('networkProfileName'))]"
-            ],
-            "location": "[parameters('location')]",
-            "tags": {},
-            "properties": {
-                "containers": [
-                    {
-                        "name": "[variables('containerName')]",
-                        "properties": {
-                            "image": "[parameters('imageName')]",
-                            "ports": [
-                    {
-                        "protocol": "UDP",
-                        "port": "53"
-                    }
-                    ],
-                            "resources": {
-                                "requests": {
-                                    "cpu": 1,
-                                    "memoryInGB": 1
-                                }
-                            }
-                        }
-                    }
-                ],
-                "restartPolicy": "OnFailure",
-                "osType": "Linux",
-                "ipAddress": {
-                    "type": "Private",
-                    "ports": [
-                    {
-                        "protocol": "UDP",
-                        "port": "53"
-                    }
-                    ]
-                },
-                "networkProfile": {
-                    "Id": "[resourceId('Microsoft.Network/networkProfiles', variables('networkProfileName'))]"
-            }
-            }
-        }
+    }
     ],
     "outputs": {
         "commandOutput": {
